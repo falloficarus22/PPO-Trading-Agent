@@ -1,0 +1,10 @@
+pandas
+numpy
+gymnasium
+torch
+torchvision
+ccxt
+matplotlib
+seaborn
+plotly
+tqdm
