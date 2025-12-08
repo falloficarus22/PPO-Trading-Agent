@@ -6,7 +6,7 @@ from config import *
 def run_test():
     print('---Starting Environment Test---')
 
-    print('Loadintg Data...')
+    print('Loading Data...')
     loader = DataLoader(EXCHANGE_ID, SYMBOL, TIMEFRAME)
     df = loader.load_data()
 

@@ -16,7 +16,7 @@ def main():
     df = loader.load_data()
 
     if df is None:
-        print('No data found. Fetching from exhange...')
+        print('No data found. Fetching from exchange...')
         df = loader.fetch_data(days = HISTORICAL_DAYS, save = True)
 
     print(f"Loaded {len(df)} candles")
@@ -44,7 +44,7 @@ def main():
         clip_epsilon = CLIP_EPSILON,
         entropy_coeff = ENTROPY_COEFF,
         value_loss_coeff = VALUE_LOSS_COEFF,
-        epochs = EPOCHS,
+        epochs = PPO_EPOCHS,
         batch_size = BATCH_SIZE
     )
     print(f"Network parameters: {sum(p.numel() for p in agent.policy.parameters())}")

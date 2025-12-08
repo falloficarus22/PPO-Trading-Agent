@@ -39,7 +39,7 @@ class ActorCritic(nn.Module):
         return action.item(), action_log_prob, state_value
 
 class PPOAgent:
-    def __init__(self, input_dim, action_dim, lr = 3e-4, gamma = 0.99, gae_lambda = 0.95, clip_epsilon = 0.2, entropy_coeff = 0.01, value_loss_coeff = 0.5, epochs = 10, batch_size = 64):
+    def __init__(self, input_dim, action_dim, lr = 3e-4, gamma = 0.99, gae_lambda = 0.95, clip_epsilon = 0.2, entropy_coeff = 0.01, value_loss_coeff = 0.5, epochs = 10, batch_size = 64, device = 'cpu'):
 
         # Hyperparameters
         self.gamma = gamma
@@ -49,9 +49,10 @@ class PPOAgent:
         self.value_loss_coeff = value_loss_coeff
         self.epochs = epochs
         self.batch_size = batch_size
+        self.device = device
 
         # Initialize network
-        self.policy = ActorCritic(input_dim, action_dim)
+        self.policy = ActorCritic(input_dim, action_dim).to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr = lr)
 
         # Storage for training
@@ -63,7 +64,7 @@ class PPOAgent:
         self.dones = []
 
     def get_action(self, state, training = True):
-        state_tensor = torch.FloatTensor(state).unsqueeze(0)
+        state_tensor = torch.FloatTensor(state).to(self.device).unsqueeze(0)
 
         with torch.no_grad():
             action, log_prob, value = self.policy.get_action(state_tensor)
@@ -101,22 +102,19 @@ class PPOAgent:
         if len(self.states) == 0:
             return 0, 0, 0 
 
-        if len(self.states) > 0:
-            last_state = torch.FloatTensor(self.states[-1]).unsqueeze(0)
-            
-            with torch.no_grad():
-                _, next_value = self.policy(last_state)
-                next_value = next_value.item()
-        else:
-            next_value = 0
+        last_state = torch.FloatTensor(self.states[-1]).to(self.device).unsqueeze(0)
+        
+        with torch.no_grad():
+            _, next_value = self.policy(last_state)
+            next_value = next_value.item()
 
         advantages, returns = self.compute_gae(next_value)
 
-        states = torch.FloatTensor(np.array(self.states))
-        actions = torch.LongTensor(self.actions)
-        old_log_probs = torch.FloatTensor(self.log_probs)
-        advantages = torch.FloatTensor(advantages)
-        returns = torch.FloatTensor(returns)
+        states = torch.FloatTensor(np.array(self.states)).to(self.device)
+        actions = torch.LongTensor(self.actions).to(self.device)
+        old_log_probs = torch.FloatTensor(self.log_probs).to(self.device)
+        advantages = torch.FloatTensor(advantages).to(self.device)
+        returns = torch.FloatTensor(returns).to(self.device)
 
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 

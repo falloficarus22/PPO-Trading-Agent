@@ -159,53 +159,78 @@ class TradingEnvironment(gym.Env):
     def step(self, action):
         current_price = self.df.loc[self.current_step, 'close']
 
-        if action == 0:
+        if action == 0:  # HOLD
             pass
-        elif action == 1:
+        elif action == 1:  # BUY
             if self.position == 0:
+                # Open long position
                 position_size = self.balance / current_price
-                self.position = 1
+                self.position = position_size
                 self.entry_price = current_price
                 fee = self.balance * self.trading_fee
                 self.balance -= fee
             elif self.position < 0:
-                pnl = self.position * (self.entry_price - current_price)
-                fee = abs(self.position) * current_price * self.trading_fee
-                self.balance += pnl - fee
-                self.position = 0
-                self.entry_price = 0
-        else:
+                # Close short position and open long
+                pnl = abs(self.position) * (self.entry_price - current_price)
+                fee_close = abs(self.position) * current_price * self.trading_fee
+                self.balance += pnl - fee_close
+                
+                self.trades.append({
+                    'step': self.current_step,
+                    'action': 'close_short',
+                    'pnl': pnl,
+                    'fee': fee_close,
+                    'balance': self.balance,
+                    'position': self.position,
+                    'entry_price': self.entry_price
+                })
+                
+                # Open new long position
+                position_size = self.balance / current_price
+                fee_open = self.balance * self.trading_fee
+                self.balance -= fee_open
+                self.position = position_size
+                self.entry_price = current_price
+        else:  # SELL (action == 2)
             if self.position == 0:
+                # Open short position
                 position_size = -(self.balance / current_price)
                 fee = abs(position_size) * current_price * self.trading_fee
                 self.balance -= fee
                 self.position = position_size
                 self.entry_price = current_price
-
             elif self.position > 0:
+                # Close long position and open short
                 pnl = self.position * (current_price - self.entry_price)
-                fee = self.position * current_price * self.trading_fee
-                self.balance += pnl - fee
+                fee_close = self.position * current_price * self.trading_fee
+                self.balance += pnl - fee_close
+                
                 self.trades.append({
                     'step': self.current_step,
-                    'action': action,
+                    'action': 'close_long',
                     'pnl': pnl,
-                    'fee': fee * 2,
+                    'fee': fee_close,
                     'balance': self.balance,
                     'position': self.position,
                     'entry_price': self.entry_price
                 })
-                self.position = 0
-                self.entry_price = 0
+                
+                # Open new short position
+                position_size = -(self.balance / current_price)
+                fee_open = abs(position_size) * current_price * self.trading_fee
+                self.balance -= fee_open
+                self.position = position_size
+                self.entry_price = current_price
 
         self.current_step += 1
         
-        if self.position != 0:
+        # Calculate unrealized PnL (check bounds first)
+        if self.position != 0 and self.current_step < len(self.df):
             current_price_new = self.df.loc[self.current_step, 'close']
             if self.position > 0:
                 unrealized_pnl = self.position * (current_price_new - self.entry_price)
             else:
-                unrealized_pnl = self.position * (self.entry_price - current_price_new)
+                unrealized_pnl = abs(self.position) * (self.entry_price - current_price_new)
         else:
             unrealized_pnl = 0
 
@@ -230,7 +255,8 @@ class TradingEnvironment(gym.Env):
             'portfolio_value': portfolio_value,
             'total_pnl': self.total_pnl, 
             'unrealized_pnl': unrealized_pnl,
-            'current_step': self.current_step
+            'current_step': self.current_step,
+            'trades': self.trades
         }
 
         return observation, reward, terminated, truncated, info

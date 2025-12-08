@@ -16,7 +16,7 @@ class Trainer:
         self.episode_lengths = []
 
     def train(self, num_episodes = 100, max_steps = 500, save_interval = 50):
-        print(f"Starting training fotr{num_episodes} episodes...")
+        print(f"Starting training for {num_episodes} episodes...")
 
         for episode in range(1, num_episodes + 1):
             state, info = self.env.reset()
