@@ -171,5 +171,5 @@ class PPOAgent:
         print(f"Model saved to {filepath}")
 
     def load(self, filepath):
-        self.policy.load_state_dict(torch.load(filepath))
+        self.policy.load_state_dict(torch.load(filepath, map_location=self.device))
         print(f"Model loaded from {filepath}")

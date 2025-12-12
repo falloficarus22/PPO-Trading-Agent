@@ -7,31 +7,28 @@ class TradingEnvironment(gym.Env):
     
     metadata = {'render_modes': ['human']}
 
-    def __init__(self, df, initial_balance  = 1000, trading_fee = 0.001, window_size = 50):
+    def __init__(self, df, initial_balance=1000, trading_fee=0.001, window_size=50):
         super(TradingEnvironment, self).__init__()
 
-        self.df = df.reset_index(drop = True)
+        self.df = df.reset_index(drop=True)
         self.initial_balance = initial_balance
         self.trading_fee = trading_fee
         self.window_size = window_size
 
         self.smart_money_concepts()
+        self.precompute_features()  # <--- NEW: Calculate everything once
+
         self.action_space = spaces.Discrete(3)
 
         obs_shape = (window_size, 12)
         self.observation_space = spaces.Box(
-            low = -np.inf,
-            high = np.inf,
-            shape = obs_shape,
-            dtype = np.float32
+            low=-np.inf,
+            high=np.inf,
+            shape=obs_shape,
+            dtype=np.float32
         )
 
-        self.current_step = 0
-        self.balance = self.initial_balance
-        self.position = 0
-        self.entry_price = 0
-        self.total_pnl = 0
-        self.trades = []
+        self.reset()
 
     def _identify_liquidity(self):
         # Swing highs and lows
@@ -94,49 +91,79 @@ class TradingEnvironment(gym.Env):
         self.df['ob_bear_bottom'] = self.df['liquidity_high_low'].where(self.df['is_bear_ob']).ffill()
 
         self.df['volatility'] = self.df['high'] - self.df['low']
-        self.df.fillna(0, inplace = True)
+        self.df.fillna(0, inplace=True)
+
+    def precompute_features(self):
+        """Precompute all static features to avoid loops during steps"""
+        # 1. Price Data Features
+        close = self.df['close']
+        
+        feat_open = self.df['open'] / close
+        feat_high = self.df['high'] / close
+        feat_low = self.df['low'] / close
+        feat_close = self.df['close'] / close
+        feat_vol = self.df['volume'] / (self.df['volume'].mean() + 1e-8)
+
+        # 2. SMC Features
+        # Distance to OBs
+        # Need to handle the conditional 'if row[is_bull_ob]' vectorially
+        # We can just compute the value for all rows, then zero out non-OB rows
+        dist_bull = (self.df['close'] - self.df['ob_bull_top']) / close
+        dist_bull = np.where(self.df['is_bull_ob'], dist_bull, 0)
+
+        dist_bear = (self.df['ob_bear_bottom'] - self.df['close']) / close
+        dist_bear = np.where(self.df['is_bear_ob'], dist_bear, 0)
+
+        # Inside OB
+        in_bull = (self.df['low'] <= self.df['ob_bull_top']) & (self.df['high'] >= self.df['ob_bull_bottom'])
+        in_bear = (self.df['low'] >= self.df['ob_bear_bottom']) & (self.df['high'] <= self.df['ob_bear_top'])
+        
+        # 3. Contextual Features (minus balance/position which are dynamic)
+        feat_vola = self.df['volatility'] / close
+
+        # Stack static features
+        # Shape: (N, 10) -> We will append the 2 dynamic features later
+        self.static_features = np.column_stack([
+            feat_open, feat_high, feat_low, feat_close, feat_vol,
+            dist_bull, dist_bear,
+            in_bull.astype(float), in_bear.astype(float),
+            feat_vola
+        ]).astype(np.float32)
 
     def _get_observation(self):
+        # Fast slicing using the precomputed array
         start = max(0, self.current_step - self.window_size + 1)
         end = self.current_step + 1
-        window_data = self.df.iloc[start:end]
+        
+        # Get static features for the window
+        # If we are at the very start (step < window_size), we need to pad
+        static_chunk = self.static_features[start:end]
+        
+        if len(static_chunk) < self.window_size:
+            pad_len = self.window_size - len(static_chunk)
+            # Pad with zeros
+            padding = np.zeros((pad_len, 10), dtype=np.float32)
+            static_chunk = np.vstack([padding, static_chunk])
 
-        close_price = self.df.loc[self.current_step, 'close']
+        # Current dynamic features
+        # We need to broadcast these scalar values to match the window size (50, 2)
+        # Or, usually in RL, we just attach them to the current step or all steps.
+        # Your previous loop attached them to *every* step in the window.
+        dynamic_features = np.array([
+            self.balance / self.initial_balance,
+            float(self.position)
+        ], dtype=np.float32)
+        
+        # Broadcast (50, 2)
+        dynamic_chunk = np.tile(dynamic_features, (self.window_size, 1))
 
-        obs = []
-        for _, row in window_data.iterrows():
-            features = [
-                # Price data features
-                row['open'] / close_price,
-                row['high'] / close_price,
-                row['low'] / close_price,
-                row['close'] / close_price,
-                row['volume'] / (self.df['volume'].mean() + 1e-8),
-                 
-                # Smart money concept features
+        # Combine (50, 10) + (50, 2) -> (50, 12)
+        obs = np.concatenate([static_chunk, dynamic_chunk], axis=1)
+        
+        return obs
 
-                # Distance to OBs
-                (row['close'] - row['ob_bull_top']) / close_price if row['is_bull_ob'] else 0,
-                (row['ob_bear_bottom'] - row['close']) / close_price if row['is_bear_ob'] else 0,
-
-                # Are we still inside an OB
-                1.0 if (row['low'] <= row['ob_bull_top']) and (row['high'] >= row['ob_bull_bottom']) else 0.0,
-                1.0 if (row['low'] >= row['ob_bear_bottom']) and (row['high'] <= row['ob_bear_top']) else 0.0,
-
-                # Contextual features
-                row['volatility'] / close_price,
-                self.balance / self.initial_balance,
-                float(self.position)
-            ]
-            obs.append(features)
-
-        while len(obs) < self.window_size:
-            obs.insert(0, [0.0] * 12)
-
-        return np.array(obs, dtype = np.float32)
-
-    def reset(self, seed = None, options = None):
-        super().reset(seed = seed)
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
 
         self.current_step = np.random.randint(self.window_size, len(self.df) - 100)
         self.balance = self.initial_balance

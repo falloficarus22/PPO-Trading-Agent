@@ -5,10 +5,16 @@ from src.environment import TradingEnvironment
 from src.agent import PPOAgent
 from src.trainer import Trainer
 
+import torch  # Add this import
+
 def main():
     print("=" * 50)
     print('PPO Trader')
     print("=" * 50)
+
+    # Device configuration
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
 
     print("\n[1/4] Loading Data...")
 
@@ -45,7 +51,8 @@ def main():
         entropy_coeff = ENTROPY_COEFF,
         value_loss_coeff = VALUE_LOSS_COEFF,
         epochs = PPO_EPOCHS,
-        batch_size = BATCH_SIZE
+        batch_size = BATCH_SIZE,
+        device = device  # Pass the device here
     )
     print(f"Network parameters: {sum(p.numel() for p in agent.policy.parameters())}")
     print("\n[4/4] Training...")
