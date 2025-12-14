@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPO Trading Agent - Live Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>PPO Trading Agent - Live Dashboard</h1>
+            <div class="status-indicator">
+                <span id="status-badge" class="badge badge-stopped">Stopped</span>
+            </div>
+        </header>
+
+        <div class="controls-panel">
+            <div class="control-group">
+                <label for="model-select">Select Model:</label>
+                <select id="model-select">
+                    <option value="">Loading models...</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="initial-balance">Initial Balance ($):</label>
+                <input type="number" id="initial-balance" value="1000" min="100" step="100">
+            </div>
+            <div class="control-group">
+                <button id="start-btn" class="btn btn-primary" disabled>Start Trading</button>
+                <button id="stop-btn" class="btn btn-danger" disabled>Stop Trading</button>
+            </div>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Portfolio Value</div>
+                <div class="metric-value" id="portfolio-value">$0.00</div>
+                <div class="metric-change" id="portfolio-change">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Balance</div>
+                <div class="metric-value" id="balance">$0.00</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Unrealized P&L</div>
+                <div class="metric-value" id="unrealized-pnl">$0.00</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Total Return</div>
+                <div class="metric-value" id="total-return">0.00%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Current Price</div>
+                <div class="metric-value" id="current-price">$0.00</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Position</div>
+                <div class="metric-value" id="position">No Position</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Entry Price</div>
+                <div class="metric-value" id="entry-price">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Total Trades</div>
+                <div class="metric-value" id="total-trades">0</div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h3>Portfolio Value Over Time</h3>
+                <canvas id="portfolio-chart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Price & Actions</h3>
+                <canvas id="price-chart"></canvas>
+            </div>
+        </div>
+
+        <div class="tables-grid">
+            <div class="table-container">
+                <h3>Recent Trades</h3>
+                <table id="trades-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>Price</th>
+                            <th>Size</th>
+                            <th>P&L</th>
+                            <th>Fee</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trades-tbody">
+                        <tr><td colspan="6" class="empty">No trades yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="table-container">
+                <h3>Action History</h3>
+                <table id="actions-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Action</th>
+                            <th>Price</th>
+                        </tr>
+                    </thead>
+                    <tbody id="actions-tbody">
+                        <tr><td colspan="3" class="empty">No actions yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="log-panel">
+            <h3>Activity Log</h3>
+            <div id="activity-log"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
+

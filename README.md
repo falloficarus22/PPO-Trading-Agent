@@ -28,6 +28,11 @@ A sophisticated deep reinforcement learning trading agent that uses Proximal Pol
 - **Data Integration**: Seamless data fetching from 100+ cryptocurrency exchanges via CCXT
 - **Comprehensive Evaluation**: Built-in evaluation tools with detailed metrics and visualizations
 - **Highly Configurable**: Easy-to-modify configuration for all hyperparameters and trading parameters
+- **Live Trading Dashboard**: Real-time web dashboard for monitoring live trading performance with:
+  - Real-time price and portfolio value charts
+  - Trade execution tracking
+  - Performance metrics
+  - WebSocket-based live updates
 
 ## Table of Contents
 
