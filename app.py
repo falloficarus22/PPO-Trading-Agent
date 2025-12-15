@@ -34,7 +34,7 @@ app.add_middleware(
 
 # --- CONFIGURATION ---
 REFRESH_RATE = 2.0
-EXCHANGE_LIMIT = 100
+EXCHANGE_LIMIT = 500
 TRADES_LOG_FILE = LOGS_DIR / 'live_trades.json'
 PORTFOLIO_LOG_FILE = LOGS_DIR / 'portfolio_history.json'
 
@@ -126,6 +126,31 @@ async def health_check():
         "exchange_connected": exchange is not None,
         "uptime": str(datetime.now() - paper_account["start_time"]) if paper_account["start_time"] else "0"
     }
+
+@app.get("/history")
+async def get_history():
+    """Get historical market data for the chart"""
+    try:
+        if exchange is None:
+             raise HTTPException(status_code=503, detail="Exchange not initialized")
+             
+        ohlcv = exchange.fetch_ohlcv(SYMBOL, TIMEFRAME, limit=EXCHANGE_LIMIT)
+        
+        # Format for lightweight charts
+        data = []
+        for candle in ohlcv:
+            # timestamp, open, high, low, close, volume
+            data.append({
+                "time": int(candle[0] / 1000), # ms to s
+                "open": candle[1],
+                "high": candle[2],
+                "low": candle[3],
+                "close": candle[4]
+            })
+        return data
+    except Exception as e:
+        logger.error(f"Error fetching history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/step")
 async def step():
@@ -456,4 +481,4 @@ async def reset():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

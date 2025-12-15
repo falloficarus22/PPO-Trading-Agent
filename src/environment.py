@@ -165,7 +165,15 @@ class TradingEnvironment(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
-        self.current_step = np.random.randint(self.window_size, len(self.df) - 100)
+        # safe_high ensures we don't assume we have 100 steps of future data if df is short
+        safe_high = len(self.df) - 100
+        if safe_high <= self.window_size:
+             safe_high = len(self.df) - 1
+        
+        if safe_high > self.window_size:
+            self.current_step = np.random.randint(self.window_size, safe_high)
+        else:
+            self.current_step = self.window_size
         self.balance = self.initial_balance
         self.position = 0
         self.entry_price = 0

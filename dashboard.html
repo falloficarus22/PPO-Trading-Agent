@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -168,10 +169,21 @@
             font-size: 20px;
         }
 
-        .gradient-blue { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
-        .gradient-green { background: linear-gradient(135deg, #22c55e, #10b981); }
-        .gradient-purple { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
-        .gradient-orange { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+        .gradient-blue {
+            background: linear-gradient(135deg, #3b82f6, #06b6d4);
+        }
+
+        .gradient-green {
+            background: linear-gradient(135deg, #22c55e, #10b981);
+        }
+
+        .gradient-purple {
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+        }
+
+        .gradient-orange {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+        }
 
         .stat-label {
             font-size: 13px;
@@ -194,8 +206,13 @@
             margin-top: 8px;
         }
 
-        .positive { color: #22c55e; }
-        .negative { color: #ef4444; }
+        .positive {
+            color: #22c55e;
+        }
+
+        .negative {
+            color: #ef4444;
+        }
 
         /* Action Display */
         .action-display {
@@ -302,12 +319,25 @@
             animation: pulse 2s infinite;
         }
 
-        .status-dot.active { background: #22c55e; }
-        .status-dot.inactive { background: #64748b; animation: none; }
+        .status-dot.active {
+            background: #22c55e;
+        }
+
+        .status-dot.inactive {
+            background: #64748b;
+            animation: none;
+        }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
         }
 
         .error-banner {
@@ -339,6 +369,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <!-- Header -->
@@ -437,8 +468,8 @@
                     <span style="color: #22c55e; font-size: 20px;">💹</span>
                     <div class="chart-title">BTC/USDT Price</div>
                 </div>
-                <div class="chart-container">
-                    <canvas id="price-chart"></canvas>
+                <div class="chart-container" id="price-chart-container">
+                    <div id="price-chart" style="width: 100%; height: 100%;"></div>
                 </div>
             </div>
         </div>
@@ -459,11 +490,10 @@
         let isRunning = false;
         let intervalId = null;
         let refreshRate = 2000;
+        let tradeMarkers = [];
 
-        // Chart.js setup
+        // --- Portfolio Chart (Chart.js) ---
         const portfolioCtx = document.getElementById('portfolio-chart').getContext('2d');
-        const priceCtx = document.getElementById('price-chart').getContext('2d');
-
         const portfolioChart = new Chart(portfolioCtx, {
             type: 'line',
             data: {
@@ -481,54 +511,68 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    y: { 
-                        grid: { color: '#334155' },
-                        ticks: { color: '#94a3b8' }
-                    },
-                    x: { 
-                        grid: { color: '#334155' },
-                        ticks: { color: '#94a3b8', maxTicksLimit: 10 }
-                    }
+                    y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                    x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', maxTicksLimit: 10 } }
                 }
             }
         });
 
-        const priceChart = new Chart(priceCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'BTC/USDT',
-                    data: [],
-                    borderColor: '#22c55e',
-                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    borderWidth: 2
-                }]
+        // --- Price Chart (Lightweight Charts) ---
+        const chartOptions = {
+            layout: {
+                backgroundColor: '#0f172a', // Matches body background roughly
+                textColor: '#d1d5db',
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    y: { 
-                        grid: { color: '#334155' },
-                        ticks: { color: '#94a3b8' }
-                    },
-                    x: { 
-                        grid: { color: '#334155' },
-                        ticks: { color: '#94a3b8', maxTicksLimit: 10 }
-                    }
-                }
-            }
+            grid: {
+                vertLines: { color: '#334155' },
+                horzLines: { color: '#334155' },
+            },
+            crosshair: {
+                mode: LightweightCharts.CrosshairMode.Normal,
+            },
+            rightPriceScale: {
+                borderColor: '#475569',
+            },
+            timeScale: {
+                borderColor: '#475569',
+                timeVisible: true,
+            },
+        };
+
+        const priceChartContainer = document.getElementById('price-chart');
+        const priceChart = LightweightCharts.createChart(priceChartContainer, chartOptions);
+
+        // Handle resize
+        new ResizeObserver(entries => {
+            if (entries.length === 0 || entries[0].target !== priceChartContainer) { return; }
+            const newRect = entries[0].contentRect;
+            priceChart.applyOptions({ height: newRect.height, width: newRect.width });
+        }).observe(priceChartContainer);
+
+        const candleSeries = priceChart.addCandlestickSeries({
+            upColor: '#22c55e',
+            downColor: '#ef4444',
+            borderUpColor: '#22c55e',
+            borderDownColor: '#ef4444',
+            wickUpColor: '#22c55e',
+            wickDownColor: '#ef4444',
         });
+
+        async function fetchHistory() {
+            try {
+                const response = await fetch('/history');
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    candleSeries.setData(data);
+                    // Fit content
+                    priceChart.timeScale().fitContent();
+                }
+            } catch (e) {
+                console.error("Failed to load history:", e);
+            }
+        }
 
         async function step() {
             try {
@@ -553,11 +597,14 @@
             document.getElementById('current-price').textContent = `Price: $${data.candle.close.toFixed(2)}`;
 
             const returnPct = ((data.portfolio_value - 1000) / 1000) * 100;
-            document.getElementById('total-return').textContent = `${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(2)}%`;
-            document.getElementById('portfolio-change').textContent = `${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(2)}%`;
-            document.getElementById('portfolio-change').className = `stat-change ${returnPct >= 0 ? 'positive' : 'negative'}`;
-            document.getElementById('return-change').textContent = `${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(2)}%`;
-            document.getElementById('return-change').className = `stat-change ${returnPct >= 0 ? 'positive' : 'negative'}`;
+            const sign = returnPct >= 0 ? '+' : '';
+            const pClass = returnPct >= 0 ? 'positive' : 'negative';
+
+            document.getElementById('total-return').textContent = `${sign}${returnPct.toFixed(2)}%`;
+            document.getElementById('portfolio-change').textContent = `${sign}${returnPct.toFixed(2)}%`;
+            document.getElementById('portfolio-change').className = `stat-change ${pClass}`;
+            document.getElementById('return-change').textContent = `${sign}${returnPct.toFixed(2)}%`;
+            document.getElementById('return-change').className = `stat-change ${pClass}`;
 
             // Update action
             const actionDisplay = document.getElementById('action-display');
@@ -569,10 +616,9 @@
             document.getElementById('position-type-value').textContent = posType;
             document.getElementById('position-type').textContent = `${posType} Position`;
 
-            // Update charts
-            const time = new Date().toLocaleTimeString();
-            
-            portfolioChart.data.labels.push(time);
+            // Update Portfolio Chart
+            const timeStr = new Date().toLocaleTimeString();
+            portfolioChart.data.labels.push(timeStr);
             portfolioChart.data.datasets[0].data.push(data.portfolio_value);
             if (portfolioChart.data.labels.length > 50) {
                 portfolioChart.data.labels.shift();
@@ -580,13 +626,22 @@
             }
             portfolioChart.update('none');
 
-            priceChart.data.labels.push(time);
-            priceChart.data.datasets[0].data.push(data.candle.close);
-            if (priceChart.data.labels.length > 50) {
-                priceChart.data.labels.shift();
-                priceChart.data.datasets[0].data.shift();
+            // Update Price Chart
+            candleSeries.update(data.candle);
+
+            // Markers
+            if (data.action === 'BUY' || data.action === 'SELL') {
+                const isBuy = data.action === 'BUY';
+                const marker = {
+                    time: data.candle.time,
+                    position: isBuy ? 'belowBar' : 'aboveBar',
+                    color: isBuy ? '#22c55e' : '#ef4444',
+                    shape: isBuy ? 'arrowUp' : 'arrowDown',
+                    text: isBuy ? 'BUY' : 'SELL',
+                };
+                tradeMarkers.push(marker);
+                candleSeries.setMarkers(tradeMarkers);
             }
-            priceChart.update('none');
         }
 
         function toggleTrading() {
@@ -603,7 +658,7 @@
             document.getElementById('toggle-btn').className = 'btn btn-stop';
             document.getElementById('status-dot').className = 'status-dot active';
             document.getElementById('status-text').textContent = 'LIVE TRADING';
-            
+
             step(); // Initial step
             intervalId = setInterval(step, refreshRate);
         }
@@ -620,12 +675,12 @@
         async function resetSystem() {
             try {
                 await fetch('/reset', { method: 'POST' });
-                
+
                 // Clear charts
                 portfolioChart.data.labels = [];
                 portfolioChart.data.datasets[0].data = [];
                 portfolioChart.update();
-                
+
                 priceChart.data.labels = [];
                 priceChart.data.datasets[0].data = [];
                 priceChart.update();
@@ -637,7 +692,7 @@
                 document.getElementById('total-return').textContent = '0.00%';
                 document.getElementById('portfolio-change').textContent = '+0.00%';
                 document.getElementById('action-value').textContent = 'WAITING';
-                
+
                 hideError();
             } catch (error) {
                 showError('Failed to reset system');
@@ -656,13 +711,16 @@
         // Refresh rate change
         document.getElementById('refresh-rate').addEventListener('change', (e) => {
             refreshRate = parseInt(e.target.value);
-            document.getElementById('rate-display').textContent = `${refreshRate/1000}s`;
-            
+            document.getElementById('rate-display').textContent = `${refreshRate / 1000}s`;
+
             if (isRunning) {
                 stopTrading();
                 startTrading();
             }
         });
+        // Initial fetch
+        fetchHistory();
     </script>
 </body>
+
 </html>
