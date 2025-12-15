@@ -9,7 +9,7 @@ LOGS_DIR = ROOT_DIR / 'logs'
 for directory in [DATA_DIR, MODELS_DIR, LOGS_DIR]:
     directory.mkdir(exist_ok = True, parents = True)
 
-EXCHANGE_ID = 'binance'
+EXCHANGE_ID = 'binanceus'
 SYMBOL = 'BTC/USDT'
 TIMEFRAME = '15m'
 

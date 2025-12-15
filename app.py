@@ -81,7 +81,9 @@ async def startup_event():
     
     try:
         # Initialize exchange
-        exchange = ccxt.binance({
+        # Initialize exchange dynamically based on config
+        exchange_class = getattr(ccxt, EXCHANGE_ID)
+        exchange = exchange_class({
             'enableRateLimit': True,
             'options': {'defaultType': 'spot'}
         })
