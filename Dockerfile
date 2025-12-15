@@ -14,7 +14,7 @@ COPY requirements.txt .
 
 # Install dependencies
 # We prioritize CPU-only PyTorch for smaller image size and compatibility with standard cloud tiers
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
